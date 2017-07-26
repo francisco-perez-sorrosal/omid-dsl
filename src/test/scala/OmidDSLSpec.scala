@@ -2,7 +2,6 @@ package com.fps.omid.dsl.hbase
 
 import com.typesafe.scalalogging.Logger
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.util.Bytes
 import org.apache.omid.transaction._
 import org.scalatest.{BeforeAndAfter, FunSpecLike, Inside, Matchers}
 
@@ -35,6 +34,8 @@ class OmidDSLSpec extends DefaultOmidSuite with FunSpecLike with BeforeAndAfter 
         // Realization of the omidTm using the instance created in the Omid test suite
         implicit val omidTm: TransactionManager = omidTxMgr
 
+        import HBaseDataConversions._
+
         (HBaseTxBuilder
 
           define transaction
@@ -44,17 +45,14 @@ class OmidDSLSpec extends DefaultOmidSuite with FunSpecLike with BeforeAndAfter 
 
           body { context =>
 
-            (context getOp "getClient" from_row Bytes.toBytes("id" + getClientId)
-              column (Bytes.toBytes("data"), Bytes.toBytes("name"))
-              column (Bytes.toBytes("club"), Bytes.toBytes("my_club")))
+            context getOp "getClient" from_row "id" + getClientId column ("data", "name") column ("club", "my_club")
 
-            context executeDbOp("getClient") match {
+            context executeDbOp "getClient" match {
               case Success(res) =>
                 testLogger.info("Get client succeeded: {}. Res: {}", context, res)
-                (context getOp "insertMember" to_row Bytes.toBytes(generateClubId(getClientId))
-                                               column (Bytes.toBytes("client_data"), Bytes.toBytes("name"),
-                                               res.getValue(Bytes.toBytes("data"), Bytes.toBytes("name"))))
-                context executeDbOp("insertMember")  match {
+                (context getOp "insertMember" to_row (generateClubId(getClientId))
+                                              column ("client_data", "name", res.getValue("data", "name")))
+                context executeDbOp "insertMember" match {
                   case Success(_) =>
                     testLogger.info("Member will be added to club: {}", context)
                   case Failure(ex) =>
@@ -67,12 +65,7 @@ class OmidDSLSpec extends DefaultOmidSuite with FunSpecLike with BeforeAndAfter 
           }).execute shouldBe TxResult.Committed
 
 
-        verifyValue(Bytes.toBytes("my_club_member_table"),
-          Bytes.toBytes("myclub1"),
-          Bytes.toBytes("client_data"),
-          Bytes.toBytes("name"),
-          Bytes.toBytes("Francisco")
-        ) shouldBe true
+        verifyValue("my_club_member_table", "myclub1", "client_data", "name", "Francisco") shouldBe true
 
         deleteTable("users_table")
         deleteTable("my_club_member_table")
@@ -92,6 +85,8 @@ class OmidDSLSpec extends DefaultOmidSuite with FunSpecLike with BeforeAndAfter 
         // Realization of the omidTm using the instance created in the Omid test suite
         implicit val omidTm: TransactionManager = omidTxMgr
 
+        import HBaseDataConversions._
+
         (HBaseTxBuilder
 
           define transaction
@@ -100,11 +95,9 @@ class OmidDSLSpec extends DefaultOmidSuite with FunSpecLike with BeforeAndAfter 
 
           body { context =>
 
-            (context getOp "getClient" from_row Bytes.toBytes("non-existing-id")
-              column (Bytes.toBytes("non-existing-fam"), Bytes.toBytes("name"))
-              column (Bytes.toBytes("non-existing-fam2"), Bytes.toBytes("my_club")))
+            context getOp "getClient" from_row "non-existing-id" column ("non-existing-fam", "name")
 
-            context executeDbOp("getClient") match {
+            context executeDbOp "getClient" match {
               case Success(res) =>
                 if (res.isEmpty) {
                   context set_rollback

@@ -7,8 +7,7 @@ import com.typesafe.scalalogging.Logger
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client.{Result, Get => HBaseGet, Put => HBasePut}
 import org.apache.hadoop.hbase.util.Bytes
-import org.apache.omid.committable.hbase.{HBaseCommitTable, HBaseCommitTableConfig}
-import org.apache.omid.transaction.{HBaseOmidClientConfiguration, HBaseSyncPostCommitter, HBaseTransactionManager, RollbackException, TTable, TransactionException, TransactionManager, TransactionManagerException, Transaction => OmidTransaction}
+import org.apache.omid.transaction.{RollbackException, TTable, TransactionException, TransactionManager, TransactionManagerException, Transaction => OmidTransaction}
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -131,6 +130,11 @@ trait Operation {
   val name: String
   val opType: OpType
   def execute(tx: TransactionalContext): Try[Result]
+}
+
+object HBaseDataConversions {
+  implicit def stringToByteArray(data: String) = Bytes.toBytes(data)
+  // TODO Add more conversions
 }
 
 trait HBaseOperation extends Operation {
